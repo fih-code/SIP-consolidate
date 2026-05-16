@@ -26,45 +26,31 @@ def _prepare_curve(series, n_points=500):
     return loss_grid, exceed_pct
 
 
-def _appetite_line(ax, appetite_pts, fontsize=9):
+# ------------------------------------------------------------------
+# Plotting
+# ------------------------------------------------------------------
+
+def plot_combined(series_dict, agg_series, title, ymax, xmin, xmax,
+                  appetite_pts=None):
+    """Individual LEC curves + aggregate curve on the same axes."""
+    palette = sns.color_palette('tab10', len(series_dict))
+    fig, ax = plt.subplots(figsize=(9, 5))
+
+    for (label, arr), color in zip(series_dict.items(), palette):
+        loss_grid, exceed_pct = _prepare_curve(arr)
+        ax.plot(loss_grid, exceed_pct, linewidth=1.5, color=color,
+                label=label, alpha=0.8)
+
+    loss_agg, exceed_agg = _prepare_curve(agg_series)
+    ax.plot(loss_agg, exceed_agg, linewidth=2.5, color='black',
+            linestyle='-', label='Aggregate')
+
     if appetite_pts and any(p[1] > 0 for p in appetite_pts):
         pts = sorted(appetite_pts, key=lambda p: p[0])
         ax.plot([p[0] for p in pts], [p[1] for p in pts],
                 linestyle='--', linewidth=1.5, color='red',
                 marker='o', markersize=5, label='Risk appetite')
 
-
-# ------------------------------------------------------------------
-# Plotting
-# ------------------------------------------------------------------
-
-def plot_individual(series_dict, title, ymax, xmin, xmax):
-    """One LEC curve per scenario, all on the same axes."""
-    palette = sns.color_palette('tab10', len(series_dict))
-    fig, ax = plt.subplots(figsize=(9, 5))
-    for (label, arr), color in zip(series_dict.items(), palette):
-        loss_grid, exceed_pct = _prepare_curve(arr)
-        ax.plot(loss_grid, exceed_pct, linewidth=1.5, color=color,
-                label=label, alpha=0.8)
-    ax.set_title(title, fontsize=13, fontweight='bold')
-    ax.set_xlabel('Loss amount (MSEK)', fontsize=11)
-    ax.set_ylabel('Exceedance Probability (%)', fontsize=11)
-    ax.grid(True, linestyle='--', linewidth=0.5)
-    ax.tick_params(labelsize=10)
-    ax.xaxis.set_major_formatter(FuncFormatter(lambda x, _: f'{x:.0f}'))
-    ax.set_ylim(0, ymax)
-    ax.set_xlim(xmin, xmax)
-    ax.legend(fontsize=9, loc='upper right')
-    return fig
-
-
-def plot_aggregate(agg_series, title, ymax, xmin, xmax, appetite_pts=None):
-    """Single aggregate LEC curve with optional risk appetite."""
-    loss_grid, exceed_pct = _prepare_curve(agg_series)
-    fig, ax = plt.subplots(figsize=(9, 5))
-    ax.plot(loss_grid, exceed_pct, linewidth=2, color='#396976',
-            label='Aggregate')
-    _appetite_line(ax, appetite_pts)
     ax.set_title(title, fontsize=13, fontweight='bold')
     ax.set_xlabel('Loss amount (MSEK)', fontsize=11)
     ax.set_ylabel('Exceedance Probability (%)', fontsize=11)
@@ -107,21 +93,13 @@ if not uploaded:
     st.stop()
 
 # Read all files
-series_dict = {}
-row_counts = []
-col_error = False
-
 dfs = {}
 for f in uploaded:
-    df = pd.read_excel(f)
     label = f.name.removesuffix('.xlsx').removesuffix('.XLSX')
-    dfs[label] = df
+    dfs[label] = pd.read_excel(f)
 
-# Column selection — use common numeric columns, default risk_sip
-all_numeric = [
-    set(df.select_dtypes(include='number').columns)
-    for df in dfs.values()
-]
+# Column selection — common numeric columns, default risk_sip
+all_numeric = [set(df.select_dtypes(include='number').columns) for df in dfs.values()]
 common_cols = sorted(set.intersection(*all_numeric)) if all_numeric else []
 
 if not common_cols:
@@ -129,14 +107,11 @@ if not common_cols:
     st.stop()
 
 default_col = 'risk_sip' if 'risk_sip' in common_cols else common_cols[0]
-col = st.selectbox('Column to use', common_cols,
-                   index=common_cols.index(default_col))
+col = st.selectbox('Column to use', common_cols, index=common_cols.index(default_col))
 
-for label, df in dfs.items():
-    series_dict[label] = np.asarray(df[col]).ravel()
-    row_counts.append(len(series_dict[label]))
+series_dict = {label: np.asarray(df[col]).ravel() for label, df in dfs.items()}
+row_counts = [len(arr) for arr in series_dict.values()]
 
-# Row-count alignment warning
 if len(set(row_counts)) > 1:
     st.warning(
         f'Files have different row counts {sorted(set(row_counts))}. '
@@ -156,9 +131,9 @@ with st.expander('Axis limits', expanded=False):
     ymax = ac3.number_input('Y max (%)', value=100.0,
                              min_value=1.0, max_value=100.0, format='%.1f')
 
-# Risk appetite (for aggregate chart only)
+# Risk appetite
 appetite_pts = None
-with st.expander('Risk appetite (aggregate chart)', expanded=False):
+with st.expander('Risk appetite', expanded=False):
     if st.checkbox('Show risk appetite line'):
         st.caption('Enter three coordinates — the line appears once at least one probability is above zero.')
         hc1, hc2 = st.columns(2)
@@ -174,22 +149,11 @@ with st.expander('Risk appetite (aggregate chart)', expanded=False):
             pts.append((float(loss), float(prob)))
         appetite_pts = tuple(pts)
 
-ind_title = st.text_input('Individual chart title', value='Individual Risk — Loss Exceedance Curves')
-agg_title = st.text_input('Aggregate chart title',  value='Aggregate Risk — Loss Exceedance Curve')
+chart_title = st.text_input('Chart title', value='Portfolio Risk — Loss Exceedance Curves')
 
 if st.button('Plot', type='primary'):
-    fig_ind = plot_individual(series_dict, ind_title, ymax, xmin, xmax)
-    fig_agg = plot_aggregate(agg, agg_title, ymax, xmin, xmax, appetite_pts)
-
-    png_ind = _to_png(fig_ind)
-    png_agg = _to_png(fig_agg)
-
-    st.subheader('Individual risks')
-    st.image(png_ind, use_container_width=True)
-    st.download_button('Download individual chart (PNG)', data=png_ind,
-                       file_name='individual_lec.png', mime='image/png')
-
-    st.subheader('Aggregate risk')
-    st.image(png_agg, use_container_width=True)
-    st.download_button('Download aggregate chart (PNG)', data=png_agg,
-                       file_name='aggregate_lec.png', mime='image/png')
+    fig = plot_combined(series_dict, agg, chart_title, ymax, xmin, xmax, appetite_pts)
+    png = _to_png(fig)
+    st.image(png, use_container_width=True)
+    st.download_button('Download chart (PNG)', data=png,
+                       file_name='portfolio_lec.png', mime='image/png')
