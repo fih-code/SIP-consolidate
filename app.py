@@ -126,12 +126,12 @@ agg = sum(arr[:min_rows] for arr in series_dict.values())
 # Axis controls
 with st.expander('Axis limits', expanded=False):
     ac1, ac2, ac3 = st.columns(3)
-    xmin = ac1.number_input(f'X min ({currency})', value=0.0, min_value=0.0, format='%.1f')
+    xmin = ac1.number_input(f'X min ({currency})', value=0.0, min_value=0.0, format='%.1f', key='con_xmin')
     xmax = ac2.number_input(f'X max ({currency})',
                              value=float(max(arr.max() for arr in series_dict.values()) * 1.1),
-                             min_value=0.001, format='%.1f')
+                             min_value=0.001, format='%.1f', key='con_xmax')
     ymax = ac3.number_input('Y max (%)', value=100.0,
-                             min_value=1.0, max_value=100.0, format='%.1f')
+                             min_value=1.0, max_value=100.0, format='%.1f', key='con_ymax')
 
 # Risk appetite
 appetite_pts = None
