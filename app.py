@@ -124,14 +124,18 @@ min_rows = min(row_counts)
 agg = sum(arr[:min_rows] for arr in series_dict.values())
 
 # Axis controls
+if 'con_xmin' not in st.session_state:
+    st.session_state['con_xmin'] = 0.0
+if 'con_xmax' not in st.session_state:
+    st.session_state['con_xmax'] = float(max(arr.max() for arr in series_dict.values()) * 1.1)
+if 'con_ymax' not in st.session_state:
+    st.session_state['con_ymax'] = 100.0
+
 with st.expander('Axis limits', expanded=False):
     ac1, ac2, ac3 = st.columns(3)
-    xmin = ac1.number_input(f'X min ({currency})', value=0.0, min_value=0.0, format='%.1f', key='con_xmin')
-    xmax = ac2.number_input(f'X max ({currency})',
-                             value=float(max(arr.max() for arr in series_dict.values()) * 1.1),
-                             min_value=0.001, format='%.1f', key='con_xmax')
-    ymax = ac3.number_input('Y max (%)', value=100.0,
-                             min_value=1.0, max_value=100.0, format='%.1f', key='con_ymax')
+    xmin = ac1.number_input(f'X min ({currency})', min_value=0.0, format='%.1f', key='con_xmin')
+    xmax = ac2.number_input(f'X max ({currency})', min_value=0.001, format='%.1f', key='con_xmax')
+    ymax = ac3.number_input('Y max (%)', min_value=1.0, max_value=100.0, format='%.1f', key='con_ymax')
 
 # Risk appetite
 appetite_pts = None
