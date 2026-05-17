@@ -74,9 +74,9 @@ def _to_png(fig):
 # UI
 # ------------------------------------------------------------------
 
-currency = st.sidebar.text_input("Currency", value="MSEK")
-
 st.title('SIP Portfolio Risk')
+currency = st.text_input("Currency", value="MSEK")
+
 st.write('Upload up to 10 SIP Excel files to compare individual risks '
          'and view the aggregate loss exceedance curve.')
 
