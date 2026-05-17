@@ -14,6 +14,13 @@ import streamlit as st
 st.set_page_config(layout="centered", page_title="SIP Portfolio Risk")
 
 
+def _f(s, default=0.0):
+    try:
+        return float(s)
+    except (ValueError, TypeError):
+        return default
+
+
 # ------------------------------------------------------------------
 # ECDF helpers
 # ------------------------------------------------------------------
@@ -124,18 +131,14 @@ min_rows = min(row_counts)
 agg = sum(arr[:min_rows] for arr in series_dict.values())
 
 # Axis controls
-if 'con_xmin' not in st.session_state:
-    st.session_state['con_xmin'] = 0.0
 if 'con_xmax' not in st.session_state:
-    st.session_state['con_xmax'] = float(max(arr.max() for arr in series_dict.values()) * 1.1)
-if 'con_ymax' not in st.session_state:
-    st.session_state['con_ymax'] = 100.0
+    st.session_state['con_xmax'] = f'{max(arr.max() for arr in series_dict.values()) * 1.1:.1f}'
 
 with st.expander('Axis limits', expanded=False):
     ac1, ac2, ac3 = st.columns(3)
-    xmin = ac1.number_input(f'X min ({currency})', min_value=0.0, format='%.1f', key='con_xmin')
-    xmax = ac2.number_input(f'X max ({currency})', min_value=0.001, format='%.1f', key='con_xmax')
-    ymax = ac3.number_input('Y max (%)', min_value=1.0, max_value=100.0, format='%.1f', key='con_ymax')
+    xmin = _f(ac1.text_input(f'X min ({currency})', value='0', key='con_xmin'))
+    xmax = _f(ac2.text_input(f'X max ({currency})', key='con_xmax'), 1000.0)
+    ymax = _f(ac3.text_input('Y max (%)', value='100', key='con_ymax'), 100.0)
 
 # Risk appetite
 appetite_pts = None
@@ -146,13 +149,14 @@ with st.expander('Risk appetite', expanded=False):
         hc1.markdown(f'**Loss ({currency})**')
         hc2.markdown('**Probability (%)**')
         pts = []
-        for i in range(3):
+        defaults = [(10.0, 50.0), (50.0, 10.0), (100.0, 1.0)]
+        for i, (dl, dp) in enumerate(defaults):
             rc1, rc2 = st.columns(2)
-            loss = rc1.number_input(f'Loss {i+1}', min_value=0.0,
-                                    key=f'ap_loss_{i}', label_visibility='collapsed', format='%.1f')
-            prob = rc2.number_input(f'Prob {i+1}', min_value=0.0, max_value=100.0,
-                                    key=f'ap_prob_{i}', label_visibility='collapsed', format='%.1f')
-            pts.append((float(loss), float(prob)))
+            loss = _f(rc1.text_input(f'Loss {i+1}', value=str(dl),
+                                     key=f'ap_loss_{i}', label_visibility='collapsed'))
+            prob = _f(rc2.text_input(f'Prob {i+1}', value=str(dp),
+                                     key=f'ap_prob_{i}', label_visibility='collapsed'))
+            pts.append((loss, prob))
         appetite_pts = tuple(pts)
 
 chart_title = st.text_input('Chart title', value='Portfolio Risk — Loss Exceedance Curves')
