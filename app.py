@@ -31,7 +31,7 @@ def _prepare_curve(series, n_points=500):
 # ------------------------------------------------------------------
 
 def plot_combined(series_dict, agg_series, title, ymax, xmin, xmax,
-                  appetite_pts=None):
+                  appetite_pts=None, currency="MSEK"):
     """Individual LEC curves + aggregate curve on the same axes."""
     palette = sns.color_palette('tab10', len(series_dict))
     fig, ax = plt.subplots(figsize=(9, 5))
@@ -52,7 +52,7 @@ def plot_combined(series_dict, agg_series, title, ymax, xmin, xmax,
                 marker='o', markersize=5, label='Risk appetite')
 
     ax.set_title(title, fontsize=13, fontweight='bold')
-    ax.set_xlabel('Loss amount (MSEK)', fontsize=11)
+    ax.set_xlabel(f'Loss amount ({currency})', fontsize=11)
     ax.set_ylabel('Exceedance Probability (%)', fontsize=11)
     ax.grid(True, linestyle='--', linewidth=0.5)
     ax.tick_params(labelsize=10)
@@ -73,6 +73,8 @@ def _to_png(fig):
 # ------------------------------------------------------------------
 # UI
 # ------------------------------------------------------------------
+
+currency = st.sidebar.text_input("Currency", value="MSEK")
 
 st.title('SIP Portfolio Risk')
 st.write('Upload up to 10 SIP Excel files to compare individual risks '
@@ -124,8 +126,8 @@ agg = sum(arr[:min_rows] for arr in series_dict.values())
 # Axis controls
 with st.expander('Axis limits', expanded=False):
     ac1, ac2, ac3 = st.columns(3)
-    xmin = ac1.number_input('X min (MSEK)', value=0.0, min_value=0.0, format='%.1f')
-    xmax = ac2.number_input('X max (MSEK)',
+    xmin = ac1.number_input(f'X min ({currency})', value=0.0, min_value=0.0, format='%.1f')
+    xmax = ac2.number_input(f'X max ({currency})',
                              value=float(max(arr.max() for arr in series_dict.values()) * 1.1),
                              min_value=0.001, format='%.1f')
     ymax = ac3.number_input('Y max (%)', value=100.0,
@@ -137,7 +139,7 @@ with st.expander('Risk appetite', expanded=False):
     if st.checkbox('Show risk appetite line'):
         st.caption('Enter three coordinates — the line appears once at least one probability is above zero.')
         hc1, hc2 = st.columns(2)
-        hc1.markdown('**Loss (MSEK)**')
+        hc1.markdown(f'**Loss ({currency})**')
         hc2.markdown('**Probability (%)**')
         pts = []
         for i in range(3):
@@ -152,7 +154,7 @@ with st.expander('Risk appetite', expanded=False):
 chart_title = st.text_input('Chart title', value='Portfolio Risk — Loss Exceedance Curves')
 
 if st.button('Plot', type='primary'):
-    fig = plot_combined(series_dict, agg, chart_title, ymax, xmin, xmax, appetite_pts)
+    fig = plot_combined(series_dict, agg, chart_title, ymax, xmin, xmax, appetite_pts, currency)
     png = _to_png(fig)
     st.image(png, use_container_width=True)
     st.download_button('Download chart (PNG)', data=png,
